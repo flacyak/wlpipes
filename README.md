@@ -15,8 +15,21 @@ Under construction, landing as a stack of reviewable PRs:
 - [x] **4** — instanced rendering, camera
 - [x] **5** — the pipe simulation
 - [x] **6** — layer-shell overlay, input dismissal, multi-monitor
-- [ ] **7** — packaging, `hypridle` integration
+- [x] **7** — packaging, `hypridle` integration
 - [ ] **8** — the teapot
+
+## Install
+
+The repository is private, so the `PKGBUILD` builds the checkout it sits in
+rather than fetching a release tarball:
+
+```sh
+cd packaging
+makepkg -si
+```
+
+That installs `/usr/bin/pipes`, `pipes(1)`, and an example idle configuration
+at `/usr/share/doc/pipes-screensaver/hypridle.conf.example`.
 
 ## Build
 
