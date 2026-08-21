@@ -22,14 +22,40 @@ pub fn main(init: std.process.Init) !void {
     }
 }
 
-/// Only the windowed backend exists so far; the overlay lands in stage 6.
 fn run(io: Io, arena: std.mem.Allocator, cfg: config.Config) !void {
-    if (cfg.backend == .overlay) {
-        try writeStderr(io, "pipes: the overlay backend is not implemented yet, " ++
-            "run with --windowed\n");
-        std.process.exit(3);
+    runBackend(io, arena, cfg) catch |err| {
+        // hypridle launches this; a Zig stack trace in the journal helps
+        // nobody. Say what went wrong in one line and leave.
+        try reportRuntimeError(io, err);
+        std.process.exit(1);
+    };
+}
+
+fn runBackend(io: Io, arena: std.mem.Allocator, cfg: config.Config) !void {
+    switch (cfg.backend) {
+        .windowed => try app.runWindowed(io, arena, cfg),
+        .overlay => try app.runOverlay(io, arena, cfg),
     }
-    try app.run(io, arena, cfg);
+}
+
+fn reportRuntimeError(io: Io, err: anyerror) !void {
+    var buffer: [256]u8 = undefined;
+    var writer: Io.File.Writer = .init(.stderr(), io, &buffer);
+    try writer.interface.print("pipes: {s}\n", .{describeRuntime(err)});
+    try writer.interface.flush();
+}
+
+fn describeRuntime(err: anyerror) []const u8 {
+    return switch (err) {
+        error.ConnectFailed => "cannot reach a Wayland compositor (is WAYLAND_DISPLAY set?)",
+        error.NoLayerShell => "this compositor has no wlr-layer-shell; try --windowed",
+        error.NoCompositor, error.NoWmBase => "the compositor is missing a protocol we need",
+        error.NoDrawableConfigured => "the compositor never gave our overlay a size",
+        error.CompileFailed, error.LinkFailed => "the GLES shader failed to build",
+        error.NoDisplay, error.InitFailed, error.NoConfig, error.NoContext =>
+            "could not create an OpenGL ES context",
+        else => @errorName(err),
+    };
 }
 
 fn writeStdout(io: Io, text: []const u8) !void {
@@ -74,6 +100,8 @@ test {
     _ = @import("camera.zig");
     _ = @import("gl/instances.zig");
     _ = @import("scene.zig");
+    _ = @import("overlay.zig");
+    _ = @import("wl/input.zig");
     _ = @import("palette.zig");
     _ = @import("sim/grid.zig");
     _ = @import("sim/walk.zig");

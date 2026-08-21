@@ -15,12 +15,16 @@ const walk = @import("sim/walk.zig");
 const math = @import("math.zig");
 const connection = @import("wl/connection.zig");
 const window_mod = @import("wl/window.zig");
+const input_mod = @import("wl/input.zig");
+const overlay = @import("overlay.zig");
+const layer = @import("wl/layer.zig");
 
 /// How long a frame may block waiting on the compositor before we re-check the
 /// deadline. Keeps `--max-seconds` responsive without busy-waiting.
 const poll_interval_ms = 100;
 
-pub fn run(io: Io, allocator: std.mem.Allocator, cfg: config.Config) !void {
+/// Entry point for the windowed development backend.
+pub fn runWindowed(io: Io, allocator: std.mem.Allocator, cfg: config.Config) !void {
     var conn: connection.Connection = undefined;
     try connection.connect(&conn);
     defer conn.deinit();
@@ -150,7 +154,7 @@ fn growPipes(
 /// Radians per second of camera drift when --rotate is on.
 const orbit_speed: f32 = 0.15;
 
-fn frameCamera(surface: egl.Surface, cfg: config.Config, seconds: f32) camera_mod.Camera {
+pub fn frameCamera(surface: egl.Surface, cfg: config.Config, seconds: f32) camera_mod.Camera {
     const extent = math.Vec3.init(
         @floatFromInt(cfg.grid.x),
         @floatFromInt(cfg.grid.y),
@@ -191,4 +195,101 @@ fn reportContext(io: Io, instance: egl.Instance) !void {
     try out.print("gl version  {s}\n", .{gl.getString(gl.c.GL_VERSION)});
     try out.print("msaa        {s}\n", .{if (instance.multisampled) "4x" else "off"});
     try out.flush();
+}
+
+
+/// Entry point for the real screensaver: a fullscreen overlay on every monitor.
+pub fn runOverlay(io: Io, allocator: std.mem.Allocator, cfg: config.Config) !void {
+    var conn: connection.Connection = undefined;
+    try connection.connect(&conn);
+    defer conn.deinit();
+    _ = try conn.requireLayerShell();
+
+    var instance = try egl.init(conn.display);
+    defer instance.deinit();
+
+    var input: input_mod.Input = .{};
+    defer input.deinit();
+    if (conn.globals.seat) |seat| input_mod.watch(&input, seat);
+
+    var panels: overlay.Panels = .{ .allocator = allocator };
+    defer panels.deinit(instance);
+    try overlay.reconcile(&panels, &conn, instance);
+
+    // The renderer compiles its shader immediately, so a context must already
+    // be current. Unlike a window, a layer surface has no size until the
+    // compositor configures it, so there is nothing to make current until then.
+    try awaitFirstDrawable(&conn, &panels, instance);
+
+    var renderer = try render.init(allocator);
+    defer renderer.deinit();
+    var walker = try createWalker(io, allocator, cfg);
+    defer walker.grid.deinit(allocator);
+
+    try overlayLoop(io, &conn, &panels, &instance, &renderer, &walker, &input, cfg);
+}
+
+/// Draws until any input arrives, the compositor takes the surfaces away, or
+/// the deadline passes.
+///
+/// Every one of those exits matters: this loop is holding an exclusive
+/// keyboard grab over a fullscreen surface, so failing to leave it strands the
+/// user in a session they cannot type into.
+fn overlayLoop(
+    io: Io,
+    conn: *connection.Connection,
+    panels: *overlay.Panels,
+    instance: *egl.Instance,
+    renderer: *render.Renderer,
+    walker: *walk.Walker,
+    input: *input_mod.Input,
+    cfg: config.Config,
+) !void {
+    const started = Io.Timestamp.now(io, clock);
+    const deadline = deadlineFrom(io, cfg.max_seconds);
+    var next_tick: f32 = 0;
+
+    while (!input.dismissed and panels.anyLive()) {
+        if (expired(io, deadline)) break;
+
+        const seconds = secondsSince(io, started);
+        input.accept_motion = seconds >= input_mod.settle_seconds;
+
+        if (conn.outputs.changed) try overlay.reconcile(panels, conn, instance.*);
+        try growPipes(renderer, walker, cfg, seconds, &next_tick);
+
+        const yaw = if (cfg.rotate) seconds * orbit_speed else 0.0;
+        _ = try overlay.drawPanels(panels, instance.*, renderer, cfg, yaw);
+
+        // Blocks until a frame callback or an input event arrives. The timeout
+        // only bounds how long the deadline check can be delayed.
+        _ = try connection.waitAndDispatch(conn, poll_interval_ms);
+    }
+}
+
+
+/// Waits for the first monitor to report its size, then makes its drawable
+/// current so the renderer has somewhere to compile into.
+///
+/// Bounded rather than open ended: a compositor that never configures us must
+/// fail loudly instead of hanging with an overlay half-mapped.
+fn awaitFirstDrawable(
+    conn: *connection.Connection,
+    panels: *overlay.Panels,
+    instance: egl.Instance,
+) !void {
+    const max_attempts = 100;
+    var attempts: usize = 0;
+
+    while (attempts < max_attempts) : (attempts += 1) {
+        for (panels.items.items) |*panel| {
+            if (panel.closed or !panel.configured) continue;
+            try layer.syncDrawable(panel, instance);
+            const surface = panel.egl_surface orelse continue;
+            try surface.makeCurrent(instance);
+            return;
+        }
+        _ = try connection.waitAndDispatch(conn, poll_interval_ms);
+    }
+    return error.NoDrawableConfigured;
 }
