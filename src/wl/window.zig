@@ -28,6 +28,10 @@ pub const Window = struct {
     configured: bool = false,
     /// Cleared when the compositor asks the window to close.
     running: bool = true,
+    /// Raised by the compositor's frame callback: it is a good moment to
+    /// paint. Starts true so the first frame is not waiting on a callback
+    /// that only gets requested once a frame has been drawn.
+    frame_ready: bool = true,
 
     pub fn deinit(self: *Window) void {
         self.toplevel.destroy();
@@ -60,6 +64,26 @@ pub fn create(conn: *connection.Connection, window: *Window) !void {
     window.surface.commit();
 
     try awaitConfigure(conn, window);
+}
+
+/// Asks to be told when the next frame is due. Must be called before the
+/// buffer is swapped, so the request is committed along with the buffer.
+///
+/// This is what paces the screensaver. A timer would keep painting into an
+/// occluded or blanked output; frame callbacks simply stop arriving, which is
+/// exactly the behaviour a screensaver wants.
+pub fn requestFrame(window: *Window) void {
+    const callback = window.surface.frame() catch return;
+    callback.setListener(*Window, onFrameDone, window);
+}
+
+fn onFrameDone(callback: *wl.Callback, event: wl.Callback.Event, window: *Window) void {
+    switch (event) {
+        .done => {
+            window.frame_ready = true;
+            callback.destroy();
+        },
+    }
 }
 
 fn setUpListeners(conn: *connection.Connection, window: *Window) void {

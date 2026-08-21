@@ -13,7 +13,7 @@ Under construction, landing as a stack of reviewable PRs:
 - [x] **2** — Wayland connection, `xdg-shell` window, EGL context
 - [x] **3** — shaders, cylinder and sphere mesh generation
 - [x] **4** — instanced rendering, camera
-- [ ] **5** — the pipe simulation
+- [x] **5** — the pipe simulation
 - [ ] **6** — layer-shell overlay, input dismissal, multi-monitor
 - [ ] **7** — packaging, `hypridle` integration
 - [ ] **8** — the teapot

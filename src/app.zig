@@ -9,7 +9,9 @@ const egl = @import("egl.zig");
 const gl = @import("gl/api.zig");
 const render = @import("render.zig");
 const camera_mod = @import("camera.zig");
-const demo = @import("demo.zig");
+const grid_mod = @import("sim/grid.zig");
+const scene = @import("scene.zig");
+const walk = @import("sim/walk.zig");
 const math = @import("math.zig");
 const connection = @import("wl/connection.zig");
 const window_mod = @import("wl/window.zig");
@@ -30,22 +32,35 @@ pub fn run(io: Io, allocator: std.mem.Allocator, cfg: config.Config) !void {
     var instance = try egl.init(conn.display);
     defer instance.deinit();
 
-    var surface = try egl.createSurface(
+    var surface = try bindSurface(io, instance, &window);
+    defer surface.deinit(instance);
+
+    var renderer = try render.init(allocator);
+    defer renderer.deinit();
+
+    var walker = try createWalker(io, allocator, cfg);
+    defer walker.grid.deinit(allocator);
+
+    try frameLoop(io, &conn, &window, &instance, &surface, &renderer, &walker, cfg);
+}
+
+/// Gives the window an EGL drawable and makes it current, so every GL call
+/// after this point has a context to land in.
+fn bindSurface(io: Io, instance: egl.Instance, window: *window_mod.Window) !egl.Surface {
+    const surface = try egl.createSurface(
         instance,
         window.surface,
         window.width,
         window.height,
     );
-    defer surface.deinit(instance);
+    errdefer {
+        var mutable = surface;
+        mutable.deinit(instance);
+    }
 
     try surface.makeCurrent(instance);
     try reportContext(io, instance);
-
-    var renderer = try render.init(allocator);
-    defer renderer.deinit();
-    try demo.build(&renderer, cfg.grid);
-
-    try frameLoop(io, &conn, &window, &instance, &surface, &renderer, cfg);
+    return surface;
 }
 
 /// Draws until the compositor closes the window or the deadline passes.
@@ -56,24 +71,80 @@ fn frameLoop(
     instance: *egl.Instance,
     surface: *egl.Surface,
     renderer: *render.Renderer,
+    walker: *walk.Walker,
     cfg: config.Config,
 ) !void {
     const started = Io.Timestamp.now(io, clock);
+    var next_tick: f32 = 0;
     const deadline = deadlineFrom(io, cfg.max_seconds);
 
     while (window.running) {
         if (expired(io, deadline)) break;
+
+        // Nothing to do until the compositor says a frame is due. The wait has
+        // a timeout only so the deadline stays enforceable while it is silent.
+        if (!window.frame_ready) {
+            _ = try connection.waitAndDispatch(conn, poll_interval_ms);
+            continue;
+        }
+        window.frame_ready = false;
 
         if (window.resized) {
             surface.resize(window.width, window.height);
             window.resized = false;
         }
 
-        const camera = frameCamera(surface.*, cfg, secondsSince(io, started));
+        const seconds = secondsSince(io, started);
+        try growPipes(renderer, walker, cfg, seconds, &next_tick);
+
+        const camera = frameCamera(surface.*, cfg, seconds);
         render.draw(renderer, surface.width, surface.height, camera);
+
+        // Requested before the swap so it is committed with the buffer.
+        window_mod.requestFrame(window);
         try surface.swap(instance.*);
-        _ = try connection.waitAndDispatch(conn, poll_interval_ms);
     }
+}
+
+/// Seeds from the clock unless --seed pins it, so each launch differs.
+fn createWalker(io: Io, allocator: std.mem.Allocator, cfg: config.Config) !walk.Walker {
+    const seed = cfg.seed orelse @as(u64, @bitCast(@as(i64, @truncate(
+        Io.Timestamp.now(io, .real).nanoseconds,
+    ))));
+    prng = std.Random.DefaultPrng.init(seed);
+
+    const grid = try grid_mod.create(allocator, .{ cfg.grid.x, cfg.grid.y, cfg.grid.z });
+    return walk.create(grid, prng.random(), .{
+        .max_runs = cfg.max_runs,
+        .max_length = cfg.max_length,
+    });
+}
+
+/// Lives here rather than inside the Walker because std.Random holds a pointer
+/// to its state, which must outlive every tick.
+var prng: std.Random.DefaultPrng = undefined;
+
+/// Advances the simulation on a fixed timestep, independent of the display's
+/// refresh rate: growth must look the same on a 60Hz and a 240Hz panel.
+///
+/// Catches up at most a few ticks per frame, so a stalled frame does not make
+/// the pipes lurch forward all at once.
+fn growPipes(
+    renderer: *render.Renderer,
+    walker: *walk.Walker,
+    cfg: config.Config,
+    seconds: f32,
+    next_tick: *f32,
+) !void {
+    const interval = @as(f32, @floatFromInt(cfg.segment_ms)) / 1000.0;
+    const max_catch_up = 4;
+
+    var ticks: usize = 0;
+    while (seconds >= next_tick.* and ticks < max_catch_up) : (ticks += 1) {
+        try scene.apply(renderer, walker.tick(), walker.grid.dims);
+        next_tick.* += interval;
+    }
+    if (seconds >= next_tick.*) next_tick.* = seconds + interval;
 }
 
 /// Radians per second of camera drift when --rotate is on.
