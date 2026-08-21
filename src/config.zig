@@ -47,6 +47,9 @@ pub const Config = struct {
     max_length: u32 = 100,
     /// Fixed RNG seed, for reproducing a specific scene. Null seeds randomly.
     seed: ?u64 = null,
+    /// Percent chance that a turn sprouts a teapot instead of a ball joint.
+    /// The original hid one among the pipes; zero turns the joke off.
+    teapot_percent: u32 = 2,
 };
 
 /// What `parse` decided the process should do.
@@ -106,6 +109,8 @@ fn applyOption(config: *Config, name: []const u8, value: []const u8) Error!void 
         config.max_length = try parseInt(u32, value, 1, 100_000);
     } else if (std.mem.eql(u8, name, "seed")) {
         config.seed = try parseInt(u64, value, 0, std.math.maxInt(u64));
+    } else if (std.mem.eql(u8, name, "teapot")) {
+        config.teapot_percent = try parseInt(u32, value, 0, 100);
     } else {
         return Error.UnknownOption;
     }
@@ -164,6 +169,8 @@ pub const usage_text =
     \\      --max-length N     Segments before a run is capped (default 100).
     \\      --rotate           Slowly orbit the camera (default off).
     \\      --seed N           Fixed RNG seed, to reproduce a scene.
+    \\      --teapot PERCENT   Chance a turn sprouts a teapot (default 2,
+    \\                         0 disables the easter egg).
     \\
     \\Lifecycle:
     \\      --max-seconds N    Exit after N seconds.

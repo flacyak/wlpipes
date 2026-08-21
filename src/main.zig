@@ -100,6 +100,7 @@ test {
     _ = @import("camera.zig");
     _ = @import("gl/instances.zig");
     _ = @import("scene.zig");
+    _ = @import("teapot.zig");
     _ = @import("overlay.zig");
     _ = @import("wl/input.zig");
     _ = @import("palette.zig");

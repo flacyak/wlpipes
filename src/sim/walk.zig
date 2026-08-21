@@ -25,6 +25,8 @@ pub const Params = struct {
     min_length: u32 = 5,
     /// Random probes before falling back to a linear scan for a free cell.
     start_probes: usize = 64,
+    /// Percent chance a turn sprouts a teapot rather than a ball joint.
+    teapot_percent: u32 = 2,
 };
 
 /// What one tick produced, for the caller to turn into geometry.
@@ -33,6 +35,9 @@ pub const Event = union(enum) {
     segment: struct { cell: Cell, direction: Direction, color: usize },
     /// A ball at a cell centre: an elbow at a turn, or a run's end cap.
     joint: struct { cell: Cell, color: usize },
+    /// The easter egg, standing in for an elbow. `direction` is where the pipe
+    /// is heading, so the teapot can be turned to face along it.
+    teapot: struct { cell: Cell, direction: Direction, color: usize },
     /// The box was wiped. Everything emitted before this is gone.
     reset,
 };
@@ -102,7 +107,7 @@ fn advance(self: *Walker, out: *Output, free: []const Direction) void {
 
     if (self.direction) |previous| {
         if (previous != chosen) {
-            out.push(.{ .joint = .{ .cell = self.position, .color = self.color } });
+            out.push(elbowAt(self, chosen));
             self.straight = 0;
         }
     }
@@ -153,6 +158,21 @@ fn pickTurn(self: *Walker, free: []const Direction, current: Direction) Directio
     }
     if (count == 0) return current;
     return turns[self.random.uintLessThan(usize, count)];
+}
+
+/// Most turns get a ball joint. Occasionally one gets Newell's teapot, which
+/// is the joke the original screensaver hid among the pipes.
+fn elbowAt(self: *Walker, heading: Direction) Event {
+    if (self.params.teapot_percent > 0 and
+        self.random.uintLessThan(u32, 100) < self.params.teapot_percent)
+    {
+        return .{ .teapot = .{
+            .cell = self.position,
+            .direction = heading,
+            .color = self.color,
+        } };
+    }
+    return .{ .joint = .{ .cell = self.position, .color = self.color } };
 }
 
 fn contains(directions: []const Direction, wanted: Direction) bool {
@@ -251,6 +271,7 @@ test "a segment never leaves the box" {
                 try testing.expect(h.walker.grid.contains(grid_mod.step(s.cell, s.direction)));
             },
             .joint => |j| try testing.expect(h.walker.grid.contains(j.cell)),
+            .teapot => |t| try testing.expect(h.walker.grid.contains(t.cell)),
             .reset => {},
         };
     }
@@ -268,6 +289,7 @@ test "a cell is never claimed twice within one scene" {
         for (out.items()) |event| switch (event) {
             .reset => claimed.clearRetainingCapacity(),
             .joint => |j| _ = try claimed.getOrPut(testing.allocator, j.cell),
+            .teapot => |t| _ = try claimed.getOrPut(testing.allocator, t.cell),
             .segment => |s| {
                 // The far end of the segment is the cell being claimed now.
                 const target = grid_mod.step(s.cell, s.direction);
@@ -287,7 +309,7 @@ test "every run terminates and the scene resets" {
     for (0..10_000) |_| {
         for (h.walker.tick().items()) |event| switch (event) {
             .reset => resets += 1,
-            .joint => caps += 1,
+            .joint, .teapot => caps += 1,
             .segment => {},
         };
     }
@@ -309,7 +331,7 @@ test "a run stops at its length cap" {
     for (0..4_000) |_| {
         for (h.walker.tick().items()) |event| switch (event) {
             .segment => length += 1,
-            .joint => {},
+            .joint, .teapot => {},
             .reset => {},
         };
         // The walker resets `length` when a run ends, so sample it each tick.
@@ -365,7 +387,7 @@ test "straights are long, which is the look" {
     for (0..20_000) |_| {
         for (h.walker.tick().items()) |event| switch (event) {
             .segment => segments += 1,
-            .joint => joints += 1,
+            .joint, .teapot => joints += 1,
             .reset => {},
         };
     }
@@ -388,10 +410,66 @@ test "instance count stays bounded by the box over a long fuzz" {
     for (0..50_000) |_| {
         for (h.walker.tick().items()) |event| switch (event) {
             .reset => live = 0,
-            .segment, .joint => live += 1,
+            .segment, .joint, .teapot => live += 1,
         };
         peak = @max(peak, live);
     }
     // Each claimed cell yields at most one segment plus one joint.
     try testing.expect(peak <= capacity * 2);
+}
+
+fn countTeapots(h: *Harness, ticks: usize) struct { teapots: usize, joints: usize } {
+    var teapots: usize = 0;
+    var joints: usize = 0;
+    for (0..ticks) |_| {
+        for (h.walker.tick().items()) |event| switch (event) {
+            .teapot => teapots += 1,
+            .joint => joints += 1,
+            .segment, .reset => {},
+        };
+    }
+    return .{ .teapots = teapots, .joints = joints };
+}
+
+test "a teapot percent of zero hides the easter egg entirely" {
+    const h = try harness(testing.allocator, .{ 20, 20, 20 }, 0x7EA, .{
+        .max_runs = 10_000,
+        .teapot_percent = 0,
+    });
+    defer destroy(h, testing.allocator);
+
+    const counted = countTeapots(h, 20_000);
+    try testing.expectEqual(@as(usize, 0), counted.teapots);
+    try testing.expect(counted.joints > 0);
+}
+
+test "a teapot percent of a hundred replaces every elbow" {
+    const h = try harness(testing.allocator, .{ 20, 20, 20 }, 0x7EA, .{
+        .max_runs = 10_000,
+        .teapot_percent = 100,
+    });
+    defer destroy(h, testing.allocator);
+
+    const counted = countTeapots(h, 5_000);
+    try testing.expect(counted.teapots > 0);
+    // Run caps are still balls; only elbows become teapots, so joints remain.
+    try testing.expect(counted.joints > 0);
+}
+
+test "the default rate is rare but not vanishing" {
+    const h = try harness(testing.allocator, .{ 30, 30, 30 }, 0xBADA55, .{
+        .max_runs = 10_000,
+        .min_length = 200,
+        .max_length = 200,
+    });
+    defer destroy(h, testing.allocator);
+
+    const counted = countTeapots(h, 40_000);
+    const total = counted.teapots + counted.joints;
+    try testing.expect(total > 1_000);
+
+    // Wide bounds on purpose: this pins the joke as an occasional surprise
+    // rather than asserting an exact rate, since run caps dilute it.
+    const per_mille = counted.teapots * 1000 / total;
+    try testing.expect(per_mille > 2 and per_mille < 60);
 }
