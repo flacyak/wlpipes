@@ -7,6 +7,7 @@ const Io = std.Io;
 const config = @import("config.zig");
 const egl = @import("egl.zig");
 const gl = @import("gl/api.zig");
+const render = @import("render.zig");
 const connection = @import("wl/connection.zig");
 const window_mod = @import("wl/window.zig");
 
@@ -14,7 +15,7 @@ const window_mod = @import("wl/window.zig");
 /// deadline. Keeps `--max-seconds` responsive without busy-waiting.
 const poll_interval_ms = 100;
 
-pub fn run(io: Io, cfg: config.Config) !void {
+pub fn run(io: Io, allocator: std.mem.Allocator, cfg: config.Config) !void {
     var conn: connection.Connection = undefined;
     try connection.connect(&conn);
     defer conn.deinit();
@@ -36,7 +37,11 @@ pub fn run(io: Io, cfg: config.Config) !void {
 
     try surface.makeCurrent(instance);
     try reportContext(io, instance);
-    try frameLoop(io, &conn, &window, &instance, &surface, cfg);
+
+    var renderer = try render.init(allocator);
+    defer renderer.deinit();
+
+    try frameLoop(io, &conn, &window, &instance, &surface, &renderer, cfg);
 }
 
 /// Draws until the compositor closes the window or the deadline passes.
@@ -46,8 +51,10 @@ fn frameLoop(
     window: *window_mod.Window,
     instance: *egl.Instance,
     surface: *egl.Surface,
+    renderer: *render.Renderer,
     cfg: config.Config,
 ) !void {
+    const started = Io.Timestamp.now(io, clock);
     const deadline = deadlineFrom(io, cfg.max_seconds);
 
     while (window.running) {
@@ -58,18 +65,15 @@ fn frameLoop(
             window.resized = false;
         }
 
-        drawFrame(surface.width, surface.height);
+        render.draw(renderer, surface.width, surface.height, secondsSince(io, started));
         try surface.swap(instance.*);
         _ = try connection.waitAndDispatch(conn, poll_interval_ms);
     }
 }
 
-/// Stage 2 has nothing to draw yet, so the frame is the black the pipes will
-/// later sit against. Proves the context, the swap chain and the resize path.
-fn drawFrame(width: u31, height: u31) void {
-    gl.c.glViewport(0, 0, width, height);
-    gl.c.glClearColor(0.0, 0.0, 0.0, 1.0);
-    gl.c.glClear(gl.c.GL_COLOR_BUFFER_BIT | gl.c.GL_DEPTH_BUFFER_BIT);
+fn secondsSince(io: Io, started: Io.Timestamp) f32 {
+    const elapsed = started.durationTo(Io.Timestamp.now(io, clock));
+    return @as(f32, @floatFromInt(elapsed.nanoseconds)) / std.time.ns_per_s;
 }
 
 /// `.awake` is monotonic, so a wall-clock adjustment mid-run cannot cut the

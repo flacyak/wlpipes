@@ -18,18 +18,18 @@ pub fn main(init: std.process.Init) !void {
     switch (outcome) {
         .help => try writeStdout(init.io, config.usage_text),
         .version => try writeStdout(init.io, "pipes " ++ config.version ++ "\n"),
-        .run => |cfg| try run(init.io, cfg),
+        .run => |cfg| try run(init.io, arena, cfg),
     }
 }
 
 /// Only the windowed backend exists so far; the overlay lands in stage 6.
-fn run(io: Io, cfg: config.Config) !void {
+fn run(io: Io, arena: std.mem.Allocator, cfg: config.Config) !void {
     if (cfg.backend == .overlay) {
         try writeStderr(io, "pipes: the overlay backend is not implemented yet, " ++
             "run with --windowed\n");
         std.process.exit(3);
     }
-    try app.run(io, cfg);
+    try app.run(io, arena, cfg);
 }
 
 fn writeStdout(io: Io, text: []const u8) !void {
@@ -67,6 +67,9 @@ fn describe(err: config.Error) []const u8 {
 }
 
 test {
-    _ = config;
     _ = app;
+    _ = config;
+    _ = @import("math.zig");
+    _ = @import("mesh.zig");
+    _ = @import("render.zig");
 }
