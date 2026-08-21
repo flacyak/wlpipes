@@ -1,18 +1,7 @@
 # Maintainer: flacyak <250593081+flacyak@users.noreply.github.com>
-#
-# Builds the checkout this PKGBUILD lives in, because the upstream repository
-# is private and makepkg cannot fetch a tarball from it. Run it from here:
-#
-#     cd packaging && makepkg -si
-#
-# If the repository is ever made public, drop the $startdir handling and use a
-# release tarball instead:
-#
-#     source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
-#     sha256sums=('...')
 
-pkgname=pipes-screensaver
-# Keep in step with .version in build.zig.zon.
+pkgname=wlpipes
+# Keep in step with .version in build.zig.zon, and tag the release to match.
 pkgver=0.1.0
 pkgrel=1
 pkgdesc="The Windows 95 3D Pipes screensaver, as a native Wayland client"
@@ -20,18 +9,31 @@ arch=('x86_64')
 url="https://github.com/flacyak/pipes"
 license=('MIT')
 depends=('wayland' 'libglvnd')
-makedepends=('zig>=0.16.0' 'wayland-protocols' 'pkgconf')
-optdepends=('hypridle: run the screensaver after an idle timeout')
-provides=('pipes')
+makedepends=('git' 'zig>=0.16.0' 'wayland-protocols' 'pkgconf')
+optdepends=('hypridle: run the screensaver after an idle timeout'
+            'hyprlock: lock the session once the screensaver has been running')
 options=('!debug')
-source=()
-sha256sums=()
+
+# Pinned to the release tag rather than a branch, so a given pkgver always
+# builds the same source. SKIP is the norm for a git source: the tag is what
+# fixes the revision, not a checksum over a tarball GitHub regenerates.
+source=("$pkgname::git+$url.git#tag=v$pkgver")
+sha256sums=('SKIP')
+
+prepare() {
+	cd "$srcdir/$pkgname"
+
+	# Zig resolves the zig-wayland dependency over the network. Doing it here
+	# keeps build() offline, which is where makepkg expects the network to be
+	# unavailable.
+	zig build --fetch
+}
 
 build() {
-	cd "$startdir/.."
+	cd "$srcdir/$pkgname"
 
-	# Keep the dependency cache inside the build directory so makepkg -C can
-	# clear it and a build never depends on what a previous one left behind.
+	# Keep every scrap of build state inside $srcdir so `makepkg -C` really
+	# cleans and no build inherits another's cache.
 	export ZIG_GLOBAL_CACHE_DIR="$srcdir/zig-global-cache"
 
 	zig build \
@@ -41,12 +43,12 @@ build() {
 }
 
 package() {
-	cd "$startdir/.."
+	cd "$srcdir/$pkgname"
 
-	install -Dm755 "$srcdir/out/bin/pipes" "$pkgdir/usr/bin/pipes"
+	install -Dm755 "$srcdir/out/bin/wlpipes" "$pkgdir/usr/bin/wlpipes"
 	install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
 	install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
-	install -Dm644 packaging/pipes.1 "$pkgdir/usr/share/man/man1/pipes.1"
+	install -Dm644 packaging/wlpipes.1 "$pkgdir/usr/share/man/man1/wlpipes.1"
 	install -Dm644 packaging/hypridle.conf.example \
 		"$pkgdir/usr/share/doc/$pkgname/hypridle.conf.example"
 }

@@ -49,6 +49,21 @@ jobs:
           chown -R builder:builder .
           echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
 
+      - name: Point the source at this commit
+        # The PKGBUILD ships pinned to the released tag, which is what users
+        # build. CI has to test the commit under review instead, and that tag
+        # does not exist yet on a pull request, so swap the source for this
+        # checkout. Everything after this -- the build, the file layout, the
+        # linkage -- is exercised exactly as it would be for real.
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config --global --add safe.directory "$GITHUB_WORKSPACE"
+          sed -i \
+            -e "s|^source=.*|source=(\"\$pkgname::git+file://$GITHUB_WORKSPACE#commit=$GITHUB_SHA\")|" \
+            packaging/PKGBUILD
+          grep '^source=' packaging/PKGBUILD
+
       - name: Build package
         run: sudo -u builder makepkg --noconfirm --nodeps
         working-directory: packaging
@@ -69,20 +84,20 @@ jobs:
           tar -tf "$pkg" | grep -v '^\.' | sort > listing
           cat listing
 
-          for want in usr/bin/pipes \
-                      usr/share/man/man1/pipes.1.gz \
-                      usr/share/licenses/pipes-screensaver/LICENSE \
-                      usr/share/doc/pipes-screensaver/hypridle.conf.example; do
+          for want in usr/bin/wlpipes \
+                      usr/share/man/man1/wlpipes.1.gz \
+                      usr/share/licenses/wlpipes/LICENSE \
+                      usr/share/doc/wlpipes/hypridle.conf.example; do
             grep -qx "$want" listing || { echo "missing: $want"; exit 1; }
           done
 
           # Every library the binary needs must be covered by `depends`.
-          tar -xOf "$pkg" usr/bin/pipes > /tmp/pipes && chmod +x /tmp/pipes
-          ldd /tmp/pipes
-          /tmp/pipes --version
+          tar -xOf "$pkg" usr/bin/wlpipes > /tmp/wlpipes && chmod +x /tmp/wlpipes
+          ldd /tmp/wlpipes
+          /tmp/wlpipes --version
 
       - uses: actions/upload-artifact@v4
         with:
-          name: pipes-screensaver-pkg
+          name: wlpipes-pkg
           path: packaging/*.pkg.tar.zst
           if-no-files-found: error

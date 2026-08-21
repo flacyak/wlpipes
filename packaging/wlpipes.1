@@ -1,11 +1,11 @@
-.TH PIPES 1 "2026-08-21" "pipes 0.1.0" "User Commands"
+.TH WLPIPES 1 "2026-08-21" "wlpipes 0.1.0" "User Commands"
 .SH NAME
-pipes \- the Windows 95 3D Pipes screensaver, for Wayland
+wlpipes \- the Windows 95 3D Pipes screensaver, for Wayland
 .SH SYNOPSIS
-.B pipes
+.B wlpipes
 .RI [ options ]
 .SH DESCRIPTION
-.B pipes
+.B wlpipes
 grows coloured pipes through a three dimensional box, turning at right angles
 and sprouting ball joints, until the box is full and the scene restarts.
 .PP
@@ -75,24 +75,35 @@ Bad usage: an unknown option, a missing value, or a value out of range.
 Run the screensaver as an idle daemon would:
 .PP
 .RS
-.B pipes
+.B wlpipes
 .RE
 .PP
 Watch it in a window while changing the simulation:
 .PP
 .RS
-.B pipes \-\-windowed \-\-grid 12x10x12 \-\-speed 20
+.B wlpipes \-\-windowed \-\-grid 12x10x12 \-\-speed 20
 .RE
 .PP
 Reproduce one particular scene:
 .PP
 .RS
-.B pipes \-\-seed 42 \-\-max\-seconds 30
+.B wlpipes \-\-seed 42 \-\-max\-seconds 30
 .RE
 .SH FILES
 .TP
-.I /usr/share/doc/pipes-screensaver/hypridle.conf.example
+.I /usr/share/doc/wlpipes/hypridle.conf.example
 An example idle daemon configuration.
+.SH HYPRLAND
+The overlay appears in
+.B hyprctl layers
+under the namespace
+.BR wlpipes ,
+on the overlay layer. Compositor rules can target it by that name, for example
+to suppress the open animation:
+.PP
+.RS
+.B layerrule = noanim, wlpipes
+.RE
 .SH SEE ALSO
 .BR hypridle (1),
 .BR hyprlock (1)

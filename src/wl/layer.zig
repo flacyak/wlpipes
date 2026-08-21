@@ -15,8 +15,9 @@ const egl = @import("../egl.zig");
 
 pub const Error = error{ SurfaceFailed, RoleFailed };
 
-/// Identifies us in `hyprctl layers` and in compositor rules.
-const namespace = "pipes";
+/// Identifies us in `hyprctl layers`, and is what a Hyprland `layerrule`
+/// matches against.
+const namespace = "wlpipes";
 
 /// One monitor's worth of screensaver.
 pub const Panel = struct {
