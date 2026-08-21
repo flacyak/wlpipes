@@ -2,9 +2,8 @@
 precision highp float;
 
 in vec3 v_view_normal;
+in vec3 v_color;
 out vec4 frag_color;
-
-uniform vec3 u_color;
 
 // Ported from the fixed-function setup in the original OpenGL screensaver
 // (xscreensaver's pipes.c keeps the same values).
@@ -35,7 +34,7 @@ vec3 lightContribution(vec3 normal, vec3 direction, vec3 ambient, vec3 diffuse, 
     vec3 light = normalize(direction);
     float lambert = max(dot(normal, light), 0.0);
 
-    vec3 result = ambient * material_ambient + diffuse * u_color * lambert;
+    vec3 result = ambient * material_ambient + diffuse * v_color * lambert;
     if (lambert > 0.0) {
         vec3 halfway = normalize(light + eye_direction);
         float highlight = pow(max(dot(normal, halfway), 0.0), shininess);

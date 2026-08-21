@@ -1,26 +1,26 @@
-//! Draws the scene. Stage 3 shows one lit cylinder and one lit sphere to
-//! prove the shader and the mesh generators; instancing arrives in stage 4.
+//! Draws the scene as two instanced calls: one for every pipe segment, one for
+//! every joint ball. Stage 4 fills them from a fixed demo path; stage 5 hands
+//! the job to the simulation.
 
 const std = @import("std");
 const gl = @import("gl/api.zig");
 const c = gl.c;
 const buffer = @import("gl/buffer.zig");
+const instances = @import("gl/instances.zig");
 const shader = @import("gl/shader.zig");
+const camera_mod = @import("camera.zig");
 const math = @import("math.zig");
 const mesh_mod = @import("mesh.zig");
 
 const vertex_source = @embedFile("shaders/pipe.vert");
 const fragment_source = @embedFile("shaders/pipe.frag");
 
-/// Vertical field of view, matching the original's 45 degree frustum.
-const fov_y = std.math.pi / 4.0;
-const near_plane = 0.1;
-const far_plane = 100.0;
+pub const Instance = instances.Instance;
+pub const Axis = instances.Axis;
 
 const Uniforms = struct {
-    model_view: c.GLint,
+    view: c.GLint,
     projection: c.GLint,
-    color: c.GLint,
 };
 
 pub const Renderer = struct {
@@ -28,11 +28,34 @@ pub const Renderer = struct {
     uniforms: Uniforms,
     cylinder: buffer.Geometry,
     sphere: buffer.Geometry,
+    segments: instances.Batch,
+    joints: instances.Batch,
+    allocator: std.mem.Allocator,
 
     pub fn deinit(self: *Renderer) void {
+        self.segments.deinit(self.allocator);
+        self.joints.deinit(self.allocator);
         self.cylinder.deinit();
         self.sphere.deinit();
         self.program.deinit();
+    }
+
+    pub fn addSegment(self: *Renderer, instance: Instance) !void {
+        try self.segments.append(self.allocator, instance);
+    }
+
+    pub fn addJoint(self: *Renderer, instance: Instance) !void {
+        try self.joints.append(self.allocator, instance);
+    }
+
+    /// Empties the scene, keeping both allocations for the next one.
+    pub fn clear(self: *Renderer) void {
+        self.segments.clear();
+        self.joints.clear();
+    }
+
+    pub fn isEmpty(self: Renderer) bool {
+        return self.segments.count() == 0 and self.joints.count() == 0;
     }
 };
 
@@ -47,16 +70,23 @@ pub fn init(allocator: std.mem.Allocator) !Renderer {
     var sphere = try uploadSphere(allocator);
     errdefer sphere.deinit();
 
+    const segments = instances.create();
+    const joints = instances.create();
+    cylinder.attachInstances(segments);
+    sphere.attachInstances(joints);
+
     setUpPipelineState();
     return .{
         .program = program,
         .uniforms = .{
-            .model_view = program.uniform("u_model_view"),
+            .view = program.uniform("u_view"),
             .projection = program.uniform("u_projection"),
-            .color = program.uniform("u_color"),
         },
         .cylinder = cylinder,
         .sphere = sphere,
+        .segments = segments,
+        .joints = joints,
+        .allocator = allocator,
     };
 }
 
@@ -91,51 +121,18 @@ fn setUpPipelineState() void {
     c.glClearColor(0.0, 0.0, 0.0, 1.0);
 }
 
-/// Draws one frame. `seconds` drives a slow turntable so the lighting can be
-/// judged from every angle.
-///
-/// The sample scene is a pipe running into a ball joint: the same two shapes
-/// the simulation will emit, arranged the way it will arrange them.
-pub fn draw(self: *Renderer, width: u31, height: u31, seconds: f32) void {
+/// Draws one frame: two instanced calls regardless of how full the box is.
+pub fn draw(self: *Renderer, width: u31, height: u31, camera: camera_mod.Camera) void {
     c.glViewport(0, 0, width, height);
     c.glClear(c.GL_COLOR_BUFFER_BIT | c.GL_DEPTH_BUFFER_BIT);
 
+    instances.upload(&self.segments);
+    instances.upload(&self.joints);
+
     self.program.use();
-    self.program.setMat4(self.uniforms.projection, projectionFor(width, height));
+    self.program.setMat4(self.uniforms.projection, camera.projection);
+    self.program.setMat4(self.uniforms.view, camera.view);
 
-    const view = math.lookAt(
-        math.Vec3.init(0, 0.7, 3.4),
-        math.Vec3.zero,
-        math.Vec3.init(0, 1, 0),
-    );
-    const turntable = math.multiply(view, math.rotationY(seconds * 0.5));
-    const blue = math.Vec3.init(0.0, 0.0, 0.7);
-
-    // A cell-long pipe laid along X, ending in the elbow ball at the origin.
-    const along_x = math.multiply(
-        math.translation(math.Vec3.init(-0.5, 0, 0)),
-        math.rotationY(std.math.pi / 2.0),
-    );
-    drawShape(self, self.cylinder, turntable, along_x, blue);
-    drawShape(self, self.sphere, turntable, math.identity, blue);
-
-    // A second pipe leaving the joint along Z, so the elbow reads as an elbow.
-    drawShape(self, self.cylinder, turntable, math.translation(math.Vec3.init(0, 0, 0.5)), blue);
-}
-
-fn drawShape(
-    self: *Renderer,
-    geometry: buffer.Geometry,
-    view: math.Mat4,
-    model: math.Mat4,
-    color: math.Vec3,
-) void {
-    self.program.setMat4(self.uniforms.model_view, math.multiply(view, model));
-    self.program.setVec3(self.uniforms.color, color);
-    geometry.draw();
-}
-
-fn projectionFor(width: u31, height: u31) math.Mat4 {
-    const aspect = @as(f32, @floatFromInt(width)) / @as(f32, @floatFromInt(@max(height, 1)));
-    return math.perspective(fov_y, aspect, near_plane, far_plane);
+    self.cylinder.drawInstanced(self.segments.count());
+    self.sphere.drawInstanced(self.joints.count());
 }

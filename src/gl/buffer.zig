@@ -5,6 +5,7 @@ const std = @import("std");
 const gl = @import("api.zig");
 const c = gl.c;
 const mesh_mod = @import("../mesh.zig");
+const instances = @import("instances.zig");
 
 /// Vertex attribute slots, matching the `layout(location = ...)` in pipe.vert.
 pub const attrib_position: c.GLuint = 0;
@@ -22,9 +23,24 @@ pub const Geometry = struct {
         c.glDeleteBuffers(1, &self.index_buffer);
     }
 
-    pub fn draw(self: Geometry) void {
+    /// Binds a batch's attributes into this VAO. Call once at startup; the
+    /// VAO remembers the binding, so drawing does not re-specify it.
+    pub fn attachInstances(self: Geometry, batch: instances.Batch) void {
         c.glBindVertexArray(self.vao);
-        c.glDrawElements(c.GL_TRIANGLES, self.index_count, c.GL_UNSIGNED_SHORT, null);
+        instances.describeLayout(batch);
+        c.glBindVertexArray(0);
+    }
+
+    pub fn drawInstanced(self: Geometry, count: c.GLsizei) void {
+        if (count == 0) return;
+        c.glBindVertexArray(self.vao);
+        c.glDrawElementsInstanced(
+            c.GL_TRIANGLES,
+            self.index_count,
+            c.GL_UNSIGNED_SHORT,
+            null,
+            count,
+        );
     }
 };
 

@@ -8,6 +8,9 @@ const config = @import("config.zig");
 const egl = @import("egl.zig");
 const gl = @import("gl/api.zig");
 const render = @import("render.zig");
+const camera_mod = @import("camera.zig");
+const demo = @import("demo.zig");
+const math = @import("math.zig");
 const connection = @import("wl/connection.zig");
 const window_mod = @import("wl/window.zig");
 
@@ -40,6 +43,7 @@ pub fn run(io: Io, allocator: std.mem.Allocator, cfg: config.Config) !void {
 
     var renderer = try render.init(allocator);
     defer renderer.deinit();
+    try demo.build(&renderer, cfg.grid);
 
     try frameLoop(io, &conn, &window, &instance, &surface, &renderer, cfg);
 }
@@ -65,10 +69,26 @@ fn frameLoop(
             window.resized = false;
         }
 
-        render.draw(renderer, surface.width, surface.height, secondsSince(io, started));
+        const camera = frameCamera(surface.*, cfg, secondsSince(io, started));
+        render.draw(renderer, surface.width, surface.height, camera);
         try surface.swap(instance.*);
         _ = try connection.waitAndDispatch(conn, poll_interval_ms);
     }
+}
+
+/// Radians per second of camera drift when --rotate is on.
+const orbit_speed: f32 = 0.15;
+
+fn frameCamera(surface: egl.Surface, cfg: config.Config, seconds: f32) camera_mod.Camera {
+    const extent = math.Vec3.init(
+        @floatFromInt(cfg.grid.x),
+        @floatFromInt(cfg.grid.y),
+        @floatFromInt(cfg.grid.z),
+    );
+    const aspect = @as(f32, @floatFromInt(surface.width)) /
+        @as(f32, @floatFromInt(@max(surface.height, 1)));
+    const yaw = if (cfg.rotate) seconds * orbit_speed else 0.0;
+    return camera_mod.frame(extent, aspect, yaw);
 }
 
 fn secondsSince(io: Io, started: Io.Timestamp) f32 {

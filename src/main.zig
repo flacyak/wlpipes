@@ -71,5 +71,9 @@ test {
     _ = config;
     _ = @import("math.zig");
     _ = @import("mesh.zig");
+    _ = @import("camera.zig");
+    _ = @import("gl/instances.zig");
+    _ = @import("demo.zig");
+    _ = @import("palette.zig");
     _ = @import("render.zig");
 }
