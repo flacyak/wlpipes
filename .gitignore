@@ -1,4 +1,5 @@
 .zig-cache/
+zig-pkg/
 zig-cache/
 zig-out/
 build/
