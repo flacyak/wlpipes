@@ -73,7 +73,9 @@ test {
     _ = @import("mesh.zig");
     _ = @import("camera.zig");
     _ = @import("gl/instances.zig");
-    _ = @import("demo.zig");
+    _ = @import("scene.zig");
     _ = @import("palette.zig");
+    _ = @import("sim/grid.zig");
+    _ = @import("sim/walk.zig");
     _ = @import("render.zig");
 }
