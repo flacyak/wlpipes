@@ -29,11 +29,18 @@ pub fn build(b: *std.Build) void {
 fn generateWaylandBindings(b: *std.Build) *std.Build.Module {
     const scanner = Scanner.create(b, .{});
     scanner.addSystemProtocol("stable/xdg-shell/xdg-shell.xml");
+    // Vendored rather than depending on the wlr-protocols package, so the repo
+    // builds standalone. xdg-shell above is not optional even for the overlay:
+    // the layer shell xml references xdg_popup.
+    scanner.addCustomProtocol(b.path("protocol/wlr-layer-shell-unstable-v1.xml"));
 
     // Pass the highest version we actually implement; anything newer in the
     // protocol xml is left ungenerated so newer wayland-protocols stays safe.
     scanner.generate("wl_compositor", 4);
+    scanner.generate("wl_seat", 7);
+    scanner.generate("wl_output", 4);
     scanner.generate("xdg_wm_base", 3);
+    scanner.generate("zwlr_layer_shell_v1", 4);
 
     return b.createModule(.{ .root_source_file = scanner.result });
 }

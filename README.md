@@ -14,7 +14,7 @@ Under construction, landing as a stack of reviewable PRs:
 - [x] **3** — shaders, cylinder and sphere mesh generation
 - [x] **4** — instanced rendering, camera
 - [x] **5** — the pipe simulation
-- [ ] **6** — layer-shell overlay, input dismissal, multi-monitor
+- [x] **6** — layer-shell overlay, input dismissal, multi-monitor
 - [ ] **7** — packaging, `hypridle` integration
 - [ ] **8** — the teapot
 
@@ -31,14 +31,35 @@ zig build run -- --help
 ## Usage
 
 ```sh
+pipes                     # fullscreen overlay on every monitor
 pipes --windowed          # ordinary window, for development
-pipes                     # fullscreen overlay (not implemented until stage 6)
 pipes --help
 ```
 
-While developing the overlay backend, prefer `--windowed`. The overlay takes an
-exclusive keyboard grab, so a bug in its input handling can lock you out of your
-session; `--max-seconds N` exists as the escape hatch.
+The overlay covers every monitor on the `overlay` layer, above panels and bars,
+and exits on any key, click, pointer motion or touch. Pointer motion is ignored
+for the first 300ms so a drifting cursor does not dismiss it instantly.
+
+Exit codes: `0` normal, `1` runtime failure, `2` bad usage.
+
+### Hooking it up to hypridle
+
+```
+listener {
+    timeout = 300
+    on-timeout = pipes
+    on-resume = pkill -x pipes
+}
+```
+
+`on-resume` is belt and braces: the screensaver already exits on its own input.
+
+### A warning
+
+The overlay takes an **exclusive keyboard grab**. If its input handling breaks,
+your session becomes untypeable. When changing anything under `src/wl/`, test
+with `--windowed` first, where the compositor keeps the keyboard, and run the
+overlay with `--max-seconds N` until you trust it.
 
 ## Credit
 
