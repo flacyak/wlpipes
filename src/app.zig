@@ -121,6 +121,7 @@ fn createWalker(io: Io, allocator: std.mem.Allocator, cfg: config.Config) !walk.
     return walk.create(grid, prng.random(), .{
         .max_runs = cfg.max_runs,
         .max_length = cfg.max_length,
+        .teapot_percent = cfg.teapot_percent,
     });
 }
 

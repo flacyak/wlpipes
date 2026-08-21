@@ -15,6 +15,7 @@ pub fn apply(renderer: *render.Renderer, output: walk.Output, dims: [3]u16) !voi
         .reset => renderer.clear(),
         .joint => |j| try addJoint(renderer, j.cell, j.color, dims),
         .segment => |s| try addSegment(renderer, s.cell, s.direction, s.color, dims),
+        .teapot => |t| try addTeapot(renderer, t.cell, t.direction, t.color, dims),
     };
 }
 
@@ -43,6 +44,22 @@ fn addJoint(renderer: *render.Renderer, cell: Cell, color: usize, dims: [3]u16) 
         .center = cellCenter(cell, dims),
         .color = colorOf(color),
         .axis = @intFromEnum(grid_mod.Axis.z),
+    });
+}
+
+/// The teapot stands where an elbow ball would, turned to face along the pipe
+/// leaving the joint so its spout follows the flow.
+fn addTeapot(
+    renderer: *render.Renderer,
+    cell: Cell,
+    direction: grid_mod.Direction,
+    color: usize,
+    dims: [3]u16,
+) !void {
+    try renderer.addTeapot(.{
+        .center = cellCenter(cell, dims),
+        .color = colorOf(color),
+        .axis = @intFromEnum(direction.axis()),
     });
 }
 

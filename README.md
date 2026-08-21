@@ -16,7 +16,7 @@ Under construction, landing as a stack of reviewable PRs:
 - [x] **5** — the pipe simulation
 - [x] **6** — layer-shell overlay, input dismissal, multi-monitor
 - [x] **7** — packaging, `hypridle` integration
-- [ ] **8** — the teapot
+- [x] **8** — the teapot
 
 ## Install
 
@@ -33,7 +33,8 @@ at `/usr/share/doc/pipes-screensaver/hypridle.conf.example`.
 
 ## Build
 
-Requires Zig 0.16.
+Requires Zig 0.16. CI builds, tests and runs `makepkg` on every push and pull
+request, so the package is verified there rather than by hand.
 
 ```sh
 zig build          # -> zig-out/bin/pipes

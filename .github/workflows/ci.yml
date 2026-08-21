@@ -1,0 +1,88 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: build and test
+    runs-on: ubuntu-latest
+    # The project targets Arch, and Zig 0.16 is only packaged there for now.
+    container: archlinux:base-devel
+    steps:
+      - name: Install toolchain
+        run: |
+          pacman -Syu --noconfirm --needed \
+            git zig wayland wayland-protocols libglvnd pkgconf
+
+      - uses: actions/checkout@v4
+
+      - name: Build
+        run: zig build --summary all
+
+      - name: Test
+        run: zig build test --summary all
+
+      - name: Release build
+        run: zig build --release=fast --summary all
+
+  package:
+    name: makepkg
+    runs-on: ubuntu-latest
+    container: archlinux:base-devel
+    steps:
+      - name: Install toolchain
+        run: |
+          pacman -Syu --noconfirm --needed \
+            git zig wayland wayland-protocols libglvnd pkgconf sudo
+
+      - uses: actions/checkout@v4
+
+      - name: Create build user
+        # makepkg refuses to run as root, so give it an unprivileged user that
+        # owns the checkout.
+        run: |
+          useradd -m builder
+          chown -R builder:builder .
+          echo 'builder ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers
+
+      - name: Build package
+        run: sudo -u builder makepkg --noconfirm --nodeps
+        working-directory: packaging
+
+      - name: Inspect the package
+        # Guards against silently shipping an empty or mislinked package:
+        # makepkg exits 0 for those too.
+        shell: bash
+        run: |
+          set -euo pipefail
+          cd packaging
+          pkg=$(echo *.pkg.tar.zst)
+          echo "::notice::built $pkg ($(du -h "$pkg" | cut -f1))"
+
+          # Listed once into a file rather than re-piped per check. `grep -q`
+          # exits at the first match and SIGPIPEs tar, which under pipefail
+          # fails the whole pipeline even though the match succeeded.
+          tar -tf "$pkg" | grep -v '^\.' | sort > listing
+          cat listing
+
+          for want in usr/bin/pipes \
+                      usr/share/man/man1/pipes.1.gz \
+                      usr/share/licenses/pipes-screensaver/LICENSE \
+                      usr/share/doc/pipes-screensaver/hypridle.conf.example; do
+            grep -qx "$want" listing || { echo "missing: $want"; exit 1; }
+          done
+
+          # Every library the binary needs must be covered by `depends`.
+          tar -xOf "$pkg" usr/bin/pipes > /tmp/pipes && chmod +x /tmp/pipes
+          ldd /tmp/pipes
+          /tmp/pipes --version
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pipes-screensaver-pkg
+          path: packaging/*.pkg.tar.zst
+          if-no-files-found: error
