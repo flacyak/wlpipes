@@ -10,7 +10,7 @@ overlay, dismisses on any input, and is driven by `hypridle`.
 Under construction, landing as a stack of reviewable PRs:
 
 - [x] **1** — build scaffolding, CLI configuration
-- [ ] **2** — Wayland connection, `xdg-shell` window, EGL context
+- [x] **2** — Wayland connection, `xdg-shell` window, EGL context
 - [ ] **3** — shaders, cylinder and sphere mesh generation
 - [ ] **4** — instanced rendering, camera
 - [ ] **5** — the pipe simulation
@@ -32,7 +32,7 @@ zig build run -- --help
 
 ```sh
 pipes --windowed          # ordinary window, for development
-pipes                     # fullscreen overlay
+pipes                     # fullscreen overlay (not implemented until stage 6)
 pipes --help
 ```
 

@@ -1,4 +1,5 @@
 const std = @import("std");
+const app = @import("app.zig");
 const config = @import("config.zig");
 
 const Io = std.Io;
@@ -21,27 +22,27 @@ pub fn main(init: std.process.Init) !void {
     }
 }
 
-/// Placeholder until the Wayland backend lands. Reports the scene it would
-/// draw so the configuration is verifiable end to end today.
+/// Only the windowed backend exists so far; the overlay lands in stage 6.
 fn run(io: Io, cfg: config.Config) !void {
-    var buffer: [512]u8 = undefined;
-    var writer: Io.File.Writer = .init(.stdout(), io, &buffer);
-    const out = &writer.interface;
-
-    try out.print("backend     {t}\n", .{cfg.backend});
-    try out.print("grid        {d}x{d}x{d} ({d} cells)\n", .{
-        cfg.grid.x, cfg.grid.y, cfg.grid.z, cfg.grid.volume(),
-    });
-    try out.print("segment     {d}ms\n", .{cfg.segment_ms});
-    try out.print("runs        {d} of up to {d} segments\n", .{ cfg.max_runs, cfg.max_length });
-    try out.print("rotate      {}\n", .{cfg.rotate});
-    try out.print("not yet drawing anything: no Wayland backend\n", .{});
-    try out.flush();
+    if (cfg.backend == .overlay) {
+        try writeStderr(io, "pipes: the overlay backend is not implemented yet, " ++
+            "run with --windowed\n");
+        std.process.exit(3);
+    }
+    try app.run(io, cfg);
 }
 
 fn writeStdout(io: Io, text: []const u8) !void {
-    var buffer: [64]u8 = undefined;
-    var writer: Io.File.Writer = .init(.stdout(), io, &buffer);
+    try writeTo(.stdout(), io, text);
+}
+
+fn writeStderr(io: Io, text: []const u8) !void {
+    try writeTo(.stderr(), io, text);
+}
+
+fn writeTo(file: Io.File, io: Io, text: []const u8) !void {
+    var buffer: [128]u8 = undefined;
+    var writer: Io.File.Writer = .init(file, io, &buffer);
     try writer.interface.writeAll(text);
     try writer.interface.flush();
 }
@@ -67,4 +68,5 @@ fn describe(err: config.Error) []const u8 {
 
 test {
     _ = config;
+    _ = app;
 }
