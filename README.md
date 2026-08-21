@@ -1,14 +1,13 @@
 # wlpipes
 
-The Windows 95 *3D Pipes* screensaver, rebuilt as a native Wayland client.
+The Windows 95 _3D Pipes_ screensaver, rebuilt as a native Wayland client.
 
 Coloured pipes grow through a three dimensional box, turning at right angles
 and sprouting ball joints, until the box fills and the scene starts over. It
 covers every monitor as a `wlr-layer-shell` overlay, above panels and bars, and
 gets out of the way the moment you touch anything.
 
-Written in Zig. No X11, no toolkit, no compositor plugin — just a Wayland
-client and about 500KB of GLES.
+Wayland client and about 500KB of GLES.
 
 ![wlpipes filling a 14x11x14 box](docs/screenshot.png)
 
@@ -42,10 +41,10 @@ it builds the released source no matter which branch you happen to be on.
 
 That installs:
 
-| Path | |
-|---|---|
-| `/usr/bin/wlpipes` | the screensaver |
-| `/usr/share/man/man1/wlpipes.1` | `man wlpipes` |
+| Path                                           |                               |
+| ---------------------------------------------- | ----------------------------- |
+| `/usr/bin/wlpipes`                             | the screensaver               |
+| `/usr/share/man/man1/wlpipes.1`                | `man wlpipes`                 |
 | `/usr/share/doc/wlpipes/hypridle.conf.example` | ready-made idle configuration |
 
 ## Hyprland
