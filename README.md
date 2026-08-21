@@ -31,7 +31,7 @@ And yes, there is a teapot.
 Requires a compositor with `wlr-layer-shell` — Hyprland, Sway, river, Wayfire.
 
 ```sh
-git clone https://github.com/flacyak/pipes.git
+git clone https://github.com/flacyak/wlpipes.git
 cd pipes/packaging
 makepkg -si
 ```
