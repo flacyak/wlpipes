@@ -152,9 +152,9 @@ fn eqlAny(arg: []const u8, candidates: []const []const u8) bool {
 }
 
 pub const usage_text =
-    \\pipes - the Windows 95 3D Pipes screensaver, for Wayland
+    \\wlpipes - the Windows 95 3D Pipes screensaver, for Wayland
     \\
-    \\Usage: pipes [options]
+    \\Usage: wlpipes [options]
     \\
     \\Surface:
     \\  -w, --windowed         Draw into an ordinary window instead of a

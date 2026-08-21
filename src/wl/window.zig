@@ -59,8 +59,8 @@ pub fn create(conn: *connection.Connection, window: *Window) !void {
     errdefer window.toplevel.destroy();
 
     setUpListeners(conn, window);
-    window.toplevel.setTitle("pipes");
-    window.toplevel.setAppId("pipes");
+    window.toplevel.setTitle("wlpipes");
+    window.toplevel.setAppId("wlpipes");
     window.surface.commit();
 
     try awaitConfigure(conn, window);

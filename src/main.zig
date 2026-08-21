@@ -17,7 +17,7 @@ pub fn main(init: std.process.Init) !void {
 
     switch (outcome) {
         .help => try writeStdout(init.io, config.usage_text),
-        .version => try writeStdout(init.io, "pipes " ++ config.version ++ "\n"),
+        .version => try writeStdout(init.io, "wlpipes " ++ config.version ++ "\n"),
         .run => |cfg| try run(init.io, arena, cfg),
     }
 }
@@ -41,7 +41,7 @@ fn runBackend(io: Io, arena: std.mem.Allocator, cfg: config.Config) !void {
 fn reportRuntimeError(io: Io, err: anyerror) !void {
     var buffer: [256]u8 = undefined;
     var writer: Io.File.Writer = .init(.stderr(), io, &buffer);
-    try writer.interface.print("pipes: {s}\n", .{describeRuntime(err)});
+    try writer.interface.print("wlpipes: {s}\n", .{describeRuntime(err)});
     try writer.interface.flush();
 }
 
@@ -78,8 +78,8 @@ fn reportUsageError(io: Io, err: config.Error) !void {
     var writer: Io.File.Writer = .init(.stderr(), io, &buffer);
     const out = &writer.interface;
 
-    try out.print("pipes: {s}\n", .{describe(err)});
-    try out.writeAll("Try 'pipes --help'.\n");
+    try out.print("wlpipes: {s}\n", .{describe(err)});
+    try out.writeAll("Try 'wlpipes --help'.\n");
     try out.flush();
 }
 

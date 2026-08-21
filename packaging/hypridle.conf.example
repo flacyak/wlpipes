@@ -1,11 +1,11 @@
-# Example hypridle configuration for the pipes screensaver.
+# Example hypridle configuration for the wlpipes screensaver.
 #
 # Copy the listener block into ~/.config/hypr/hypridle.conf, or copy this whole
 # file if you do not have one yet. Restart hypridle afterwards:
 #
 #     systemctl --user restart hypridle
 #
-# Timings below are a starting point: pipes after 5 minutes, screen off after
+# Timings below are a starting point: wlpipes after 5 minutes, screen off after
 # 10, so the screensaver is a screensaver rather than a delay before blanking.
 
 general {
@@ -16,15 +16,15 @@ general {
 
 # The screensaver itself.
 #
-# pipes exits on its own as soon as you touch anything, so on-resume is only
+# wlpipes exits on its own as soon as you touch anything, so on-resume is only
 # belt and braces: it cleans up if the process somehow outlives the idle state.
 listener {
     timeout = 300
-    on-timeout = pipes
-    on-resume = pkill -x pipes
+    on-timeout = wlpipes
+    on-resume = pkill -x wlpipes
 }
 
-# Blank the screen later. pipes is still running underneath at this point and
+# Blank the screen later. wlpipes is still running underneath at this point and
 # will keep painting; frame callbacks stop arriving while the output is off, so
 # it idles rather than burning the GPU.
 listener {
