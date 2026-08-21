@@ -1,0 +1,52 @@
+# Maintainer: flacyak <250593081+flacyak@users.noreply.github.com>
+#
+# Builds the checkout this PKGBUILD lives in, because the upstream repository
+# is private and makepkg cannot fetch a tarball from it. Run it from here:
+#
+#     cd packaging && makepkg -si
+#
+# If the repository is ever made public, drop the $startdir handling and use a
+# release tarball instead:
+#
+#     source=("$pkgname-$pkgver.tar.gz::$url/archive/v$pkgver.tar.gz")
+#     sha256sums=('...')
+
+pkgname=pipes-screensaver
+# Keep in step with .version in build.zig.zon.
+pkgver=0.1.0
+pkgrel=1
+pkgdesc="The Windows 95 3D Pipes screensaver, as a native Wayland client"
+arch=('x86_64')
+url="https://github.com/flacyak/pipes"
+license=('MIT')
+depends=('wayland' 'libglvnd')
+makedepends=('zig>=0.16.0' 'wayland-protocols' 'pkgconf')
+optdepends=('hypridle: run the screensaver after an idle timeout')
+provides=('pipes')
+options=('!debug')
+source=()
+sha256sums=()
+
+build() {
+	cd "$startdir/.."
+
+	# Keep the dependency cache inside the build directory so makepkg -C can
+	# clear it and a build never depends on what a previous one left behind.
+	export ZIG_GLOBAL_CACHE_DIR="$srcdir/zig-global-cache"
+
+	zig build \
+		--release=fast \
+		--cache-dir "$srcdir/zig-cache" \
+		--prefix "$srcdir/out"
+}
+
+package() {
+	cd "$startdir/.."
+
+	install -Dm755 "$srcdir/out/bin/pipes" "$pkgdir/usr/bin/pipes"
+	install -Dm644 LICENSE "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+	install -Dm644 README.md "$pkgdir/usr/share/doc/$pkgname/README.md"
+	install -Dm644 packaging/pipes.1 "$pkgdir/usr/share/man/man1/pipes.1"
+	install -Dm644 packaging/hypridle.conf.example \
+		"$pkgdir/usr/share/doc/$pkgname/hypridle.conf.example"
+}

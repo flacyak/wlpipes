@@ -1,0 +1,41 @@
+# Example hypridle configuration for the pipes screensaver.
+#
+# Copy the listener block into ~/.config/hypr/hypridle.conf, or copy this whole
+# file if you do not have one yet. Restart hypridle afterwards:
+#
+#     systemctl --user restart hypridle
+#
+# Timings below are a starting point: pipes after 5 minutes, screen off after
+# 10, so the screensaver is a screensaver rather than a delay before blanking.
+
+general {
+    lock_cmd = pidof hyprlock || hyprlock
+    before_sleep_cmd = loginctl lock-session
+    after_sleep_cmd = hyprctl dispatch dpms on
+}
+
+# The screensaver itself.
+#
+# pipes exits on its own as soon as you touch anything, so on-resume is only
+# belt and braces: it cleans up if the process somehow outlives the idle state.
+listener {
+    timeout = 300
+    on-timeout = pipes
+    on-resume = pkill -x pipes
+}
+
+# Blank the screen later. pipes is still running underneath at this point and
+# will keep painting; frame callbacks stop arriving while the output is off, so
+# it idles rather than burning the GPU.
+listener {
+    timeout = 600
+    on-timeout = hyprctl dispatch dpms off
+    on-resume = hyprctl dispatch dpms on
+}
+
+# If you want an actual lock rather than just a screensaver, add:
+#
+# listener {
+#     timeout = 900
+#     on-timeout = loginctl lock-session
+# }

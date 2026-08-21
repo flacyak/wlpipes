@@ -1,0 +1,103 @@
+.TH PIPES 1 "2026-08-21" "pipes 0.1.0" "User Commands"
+.SH NAME
+pipes \- the Windows 95 3D Pipes screensaver, for Wayland
+.SH SYNOPSIS
+.B pipes
+.RI [ options ]
+.SH DESCRIPTION
+.B pipes
+grows coloured pipes through a three dimensional box, turning at right angles
+and sprouting ball joints, until the box is full and the scene restarts.
+.PP
+By default it covers every connected monitor with a fullscreen
+.B wlr-layer-shell
+overlay, above panels and bars, and exits as soon as you press a key, click,
+move the pointer or touch the screen. It is intended to be launched by an idle
+daemon such as
+.BR hypridle (1).
+.PP
+The compositor must support
+.BR wlr-layer-shell-unstable-v1 .
+.SH OPTIONS
+.SS Surface
+.TP
+.BR \-w ", " \-\-windowed
+Draw into an ordinary window instead of a fullscreen overlay. Use this while
+developing: the compositor keeps ownership of the keyboard.
+.TP
+.B \-\-overlay
+Fullscreen layer-shell overlay. The default.
+.SS Scene
+.TP
+.BI \-\-grid " WxHxD"
+Cells in the box. Default 26x20x26. Smaller grids give visually larger pipes.
+.TP
+.BI \-\-speed " MS"
+Milliseconds per pipe segment. Default 60. Independent of the display's refresh
+rate, so growth looks the same on a 60Hz and a 240Hz panel.
+.TP
+.BI \-\-max\-runs " N"
+Pipe runs drawn before the box is wiped and the scene restarts. Default 12.
+.TP
+.BI \-\-max\-length " N"
+Upper bound on a run's length. Default 100. Each run picks its own below this.
+.TP
+.B \-\-rotate
+Slowly orbit the camera. Off by default; the original's camera was static.
+.TP
+.BI \-\-seed " N"
+Fixed random seed, to reproduce a particular scene.
+.SS Lifecycle
+.TP
+.BI \-\-max\-seconds " N"
+Exit after N seconds.
+.IP
+The overlay takes an exclusive keyboard grab, so a fault in its input handling
+would leave the session untypeable. This is the escape hatch, and is worth
+using whenever you are changing how input is handled.
+.TP
+.BR \-h ", " \-\-help
+Show a summary of the options.
+.TP
+.BR \-V ", " \-\-version
+Show the version.
+.SH EXIT STATUS
+.TP
+.B 0
+Dismissed normally, or the deadline passed.
+.TP
+.B 1
+A runtime failure, such as no compositor or no layer-shell support.
+.TP
+.B 2
+Bad usage: an unknown option, a missing value, or a value out of range.
+.SH EXAMPLES
+Run the screensaver as an idle daemon would:
+.PP
+.RS
+.B pipes
+.RE
+.PP
+Watch it in a window while changing the simulation:
+.PP
+.RS
+.B pipes \-\-windowed \-\-grid 12x10x12 \-\-speed 20
+.RE
+.PP
+Reproduce one particular scene:
+.PP
+.RS
+.B pipes \-\-seed 42 \-\-max\-seconds 30
+.RE
+.SH FILES
+.TP
+.I /usr/share/doc/pipes-screensaver/hypridle.conf.example
+An example idle daemon configuration.
+.SH SEE ALSO
+.BR hypridle (1),
+.BR hyprlock (1)
+.SH AUTHORS
+The pipe growth algorithm follows xscreensaver's
+.I hacks/glx/pipes.c
+by Marcelo Vianna (1997), including its turn probability curve and colour
+palette.

@@ -5,3 +5,9 @@ zig-out/
 build/
 build-*/
 docgen_tmp/
+
+# makepkg output
+packaging/pkg/
+packaging/src/
+packaging/*.pkg.tar.*
+packaging/*.log
