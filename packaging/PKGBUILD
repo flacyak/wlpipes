@@ -1,4 +1,4 @@
-# Maintainer: flacyak <250593081+flacyak@users.noreply.github.com>
+# Maintainer: dragonruler1000 <github@me.minecraftchest2.us>
 
 pkgname=wlpipes
 # Keep in step with .version in build.zig.zon, and tag the release to match.
