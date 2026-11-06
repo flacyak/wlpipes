@@ -1,15 +1,15 @@
-# Maintainer: flacyak <250593081+flacyak@users.noreply.github.com>
+# Maintainer: dragonruler1000 <github@me.minecraftchest2.us>
 
 pkgname=wlpipes
 # Keep in step with .version in build.zig.zon, and tag the release to match.
-pkgver=0.1.0
+pkgver=0.1.3
 pkgrel=1
 pkgdesc="The Windows 95 3D Pipes screensaver, as a native Wayland client"
 arch=('x86_64')
-url="https://github.com/flacyak/wlpipes"
+url="https://github.com/dragonruler1000/wlpipes"
 license=('MIT')
 depends=('wayland' 'libglvnd')
-makedepends=('git' 'zig>=0.16.0' 'wayland-protocols' 'pkgconf')
+makedepends=('git' 'zig>=0.17.0' 'wayland-protocols' 'pkgconf')
 optdepends=('hypridle: run the screensaver after an idle timeout'
             'hyprlock: lock the session once the screensaver has been running')
 options=('!debug')
