@@ -3,11 +3,7 @@
 
 const std = @import("std");
 
-pub const c = @cImport({
-    @cInclude("EGL/egl.h");
-    @cInclude("EGL/eglext.h");
-    @cInclude("wayland-egl.h");
-});
+pub const c = @import("egl_c");
 
 pub const Error = error{
     NoDisplay,
