@@ -59,7 +59,7 @@ test "choose never repeats the previous colour" {
 test "choose reaches every other colour" {
     var prng = std.Random.DefaultPrng.init(1234);
     const random = prng.random();
-    var seen = [_]bool{false} ** count;
+    var seen: [count]bool = @splat(false);
 
     for (0..2000) |_| seen[choose(random, 3)] = true;
 
@@ -71,7 +71,7 @@ test "choose reaches every other colour" {
 test "choose with no previous can return any colour" {
     var prng = std.Random.DefaultPrng.init(7);
     const random = prng.random();
-    var seen = [_]bool{false} ** count;
+    var seen: [count]bool = @splat(false);
 
     for (0..2000) |_| seen[choose(random, null)] = true;
     for (seen) |hit| try testing.expect(hit);
