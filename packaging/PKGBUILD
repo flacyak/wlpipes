@@ -9,7 +9,7 @@ arch=('x86_64')
 url="https://github.com/dragonruler1000/wlpipes"
 license=('MIT')
 depends=('wayland' 'libglvnd')
-makedepends=('git' 'zig>=0.16.0' 'wayland-protocols' 'pkgconf')
+makedepends=('git' 'zig>=0.17.0' 'wayland-protocols' 'pkgconf')
 optdepends=('hypridle: run the screensaver after an idle timeout'
             'hyprlock: lock the session once the screensaver has been running')
 options=('!debug')
