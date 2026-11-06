@@ -2,7 +2,7 @@
 
 pkgname=wlpipes
 # Keep in step with .version in build.zig.zon, and tag the release to match.
-pkgver=0.1.2
+pkgver=0.1.3
 pkgrel=1
 pkgdesc="The Windows 95 3D Pipes screensaver, as a native Wayland client"
 arch=('x86_64')

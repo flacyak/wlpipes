@@ -1,11 +1,45 @@
 const std = @import("std");
 const Scanner = @import("wayland").Scanner;
+const Translator = @import("translate_c").Translator;
+
+const CModules = struct {
+    egl: *std.Build.Module,
+    gles: *std.Build.Module,
+
+    fn addTo(self: CModules, module: *std.Build.Module) void {
+        module.addImport("egl_c", self.egl);
+        module.addImport("gles_c", self.gles);
+    }
+};
+
+fn translateHeaders(
+    b: *std.Build,
+    target: std.Build.ResolvedTarget,
+    optimize: std.builtin.OptimizeMode,
+) CModules {
+    const translate_c = b.dependency("translate_c", .{});
+
+    const egl: Translator = .init(translate_c, .{
+        .c_source_file = b.path("src/c/egl.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+    const gles: Translator = .init(translate_c, .{
+        .c_source_file = b.path("src/c/gles.h"),
+        .target = target,
+        .optimize = optimize,
+    });
+
+    return .{ .egl = egl.mod, .gles = gles.mod };
+}
 
 pub fn build(b: *std.Build) void {
     const target = b.standardTargetOptions(.{});
     const optimize = b.standardOptimizeOption(.{});
 
     const wayland = generateWaylandBindings(b);
+
+    const c_mods = translateHeaders(b, target, optimize);
 
     const exe = b.addExecutable(.{
         .name = "wlpipes",
@@ -17,11 +51,12 @@ pub fn build(b: *std.Build) void {
         }),
     });
     exe.root_module.addImport("wayland", wayland);
+    c_mods.addTo(exe.root_module);
     linkGraphicsLibraries(exe.root_module);
     b.installArtifact(exe);
 
     addRunStep(b, exe);
-    addTestStep(b, target, optimize, wayland);
+    addTestStep(b, target, optimize, wayland, c_mods);
 }
 
 /// Runs wayland-scanner over the protocols we speak and exposes the result as
@@ -63,12 +98,7 @@ fn addRunStep(b: *std.Build, exe: *std.Build.Step.Compile) void {
 }
 
 /// `zig build test` runs every `test` block reachable from src/main.zig.
-fn addTestStep(
-    b: *std.Build,
-    target: std.Build.ResolvedTarget,
-    optimize: std.builtin.OptimizeMode,
-    wayland: *std.Build.Module,
-) void {
+fn addTestStep(b: *std.Build, target: std.Build.ResolvedTarget, optimize: std.builtin.OptimizeMode, wayland: *std.Build.Module, c_mods: CModules) void {
     const module = b.createModule(.{
         .root_source_file = b.path("src/main.zig"),
         .target = target,
@@ -76,6 +106,7 @@ fn addTestStep(
         .link_libc = true,
     });
     module.addImport("wayland", wayland);
+    c_mods.addTo(module);
     linkGraphicsLibraries(module);
 
     const test_step = b.step("test", "Run unit tests");
