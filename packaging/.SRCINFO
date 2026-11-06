@@ -1,0 +1,20 @@
+pkgbase = wlpipes
+	pkgdesc = The Windows 95 3D Pipes screensaver, as a native Wayland client
+	pkgver = 0.1.3
+	pkgrel = 1
+	url = https://github.com/dragonruler1000/wlpipes
+	arch = x86_64
+	license = MIT
+	makedepends = git
+	makedepends = zig>=0.17.0
+	makedepends = wayland-protocols
+	makedepends = pkgconf
+	depends = wayland
+	depends = libglvnd
+	optdepends = hypridle: run the screensaver after an idle timeout
+	optdepends = hyprlock: lock the session once the screensaver has been running
+	options = !debug
+	source = wlpipes::git+https://github.com/dragonruler1000/wlpipes.git#tag=v0.1.3
+	sha256sums = SKIP
+
+pkgname = wlpipes
